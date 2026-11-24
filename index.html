@@ -596,14 +596,18 @@
           </div>
 
           <div id="wizard-step-1" class="space-y-4">
-            <div class="grid sm:grid-cols-2 gap-4">
+            <div class="grid sm:grid-cols-3 gap-4">
               <div>
-                <label for="wiz-name" class="block mono text-[11px] uppercase text-[#8b9bb0] mb-1.5">Your Name</label>
-                <input id="wiz-name" type="text" placeholder="e.g., Arjun Rao" class="w-full rounded-xl bg-[#080d14] border hairline focus:border-[#1e90ff] focus:outline-none px-4 py-3 text-sm text-white placeholder-slate-600" />
+                <label for="wiz-name" class="block mono text-[11px] uppercase text-[#8b9bb0] mb-1.5">Your Name *</label>
+                <input id="wiz-name" type="text" required placeholder="e.g., Arjun Rao" class="w-full rounded-xl bg-[#080d14] border hairline focus:border-[#1e90ff] focus:outline-none px-4 py-3 text-sm text-white placeholder-slate-600" />
+              </div>
+              <div>
+                <label for="wiz-email" class="block mono text-[11px] uppercase text-[#8b9bb0] mb-1.5">Your Email *</label>
+                <input id="wiz-email" type="email" required placeholder="e.g., arjun@company.com" class="w-full rounded-xl bg-[#080d14] border hairline focus:border-[#1e90ff] focus:outline-none px-4 py-3 text-sm text-white placeholder-slate-600" />
               </div>
               <div>
                 <label for="wiz-org" class="block mono text-[11px] uppercase text-[#8b9bb0] mb-1.5">Organization / Incubator</label>
-                <input id="wiz-org" type="text" placeholder="e.g., Vel Tech TBI / Trading Systems" class="w-full rounded-xl bg-[#080d14] border hairline focus:border-[#1e90ff] focus:outline-none px-4 py-3 text-sm text-white placeholder-slate-600" />
+                <input id="wiz-org" type="text" placeholder="e.g., Vel Tech TBI / HFT Team" class="w-full rounded-xl bg-[#080d14] border hairline focus:border-[#1e90ff] focus:outline-none px-4 py-3 text-sm text-white placeholder-slate-600" />
               </div>
             </div>
             <div>
@@ -643,10 +647,19 @@
                   Copy Inquiry
                 </button>
                 <button id="wizard-send-btn" type="button" class="magnetic px-6 py-3 rounded-full bg-[#1e90ff] hover:bg-[#3b9eff] text-white font-semibold text-xs uppercase mono tracking-wider">
-                  Send to Email →
+                  Send Inquiry →
                 </button>
               </div>
             </div>
+          </div>
+
+          <div id="wizard-success" class="hidden py-6 text-center space-y-3">
+            <div class="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-400/40 text-emerald-400 flex items-center justify-center mx-auto text-xl">✓</div>
+            <h3 class="font-display text-xl font-bold text-white">Inquiry Sent to Ananth E Tech</h3>
+            <p class="text-sm text-[#9fb0c6] max-w-md mx-auto">Your message has been delivered directly to <strong class="text-white">ananthetech@gmail.com</strong>. Mane Ram Naren will respond shortly.</p>
+            <button id="wizard-reset-btn" type="button" class="mt-2 px-5 py-2.5 rounded-full border hairline hover:border-white text-xs uppercase mono text-slate-200 transition-colors">
+              Send Another Inquiry
+            </button>
           </div>
         </div>
       </div>
@@ -1109,19 +1122,20 @@
       });
 
       function buildInquiryPayload() {
-        const name = document.getElementById('wiz-name').value.trim() || '[Name]';
-        const org = document.getElementById('wiz-org').value.trim() || '[Organization]';
+        const name = document.getElementById('wiz-name').value.trim();
+        const email = document.getElementById('wiz-email').value.trim();
+        const org = document.getElementById('wiz-org').value.trim() || 'Not specified';
         const engine = document.getElementById('wiz-engine').value;
-        const details = document.getElementById('wiz-msg').value.trim() || '[Workload Details]';
-        const subject = '[Ananth E Tech] ' + selectedPriority + ' — ' + org;
+        const details = document.getElementById('wiz-msg').value.trim() || 'Requesting a live benchmark demo and pilot onboarding.';
+        const subject = '[Ananth E Tech] ' + selectedPriority + ' — ' + (name || org);
         const body =
           'Hello Mane Ram Naren (Ananth E Tech),\n\n' +
-          'From: ' + name + ' (' + org + ')\n' +
+          'From: ' + (name || '[Name]') + ' <' + (email || '[Email]') + '>\n' +
+          'Organization: ' + org + '\n' +
           'Priority: ' + selectedPriority + '\n' +
           'Target Engine: ' + engine + '\n\n' +
-          'Workload & Goals:\n' + details + '\n\n' +
-          'Requesting a live benchmark demo and pilot onboarding.';
-        return { subject, body };
+          'Workload & Goals:\n' + details;
+        return { name, email, org, engine, details, subject, body };
       }
 
       document.getElementById('wizard-copy-btn').addEventListener('click', () => {
@@ -1129,11 +1143,64 @@
         copyText(body, 'Inquiry copied — paste to ananthetech@gmail.com');
       });
 
-      document.getElementById('wizard-send-btn').addEventListener('click', () => {
-        const { subject, body } = buildInquiryPayload();
-        const mailtoUrl = 'mailto:ananthetech@gmail.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-        window.location.href = mailtoUrl;
-        showToast('Opening email to ananthetech@gmail.com...');
+      document.getElementById('wizard-send-btn').addEventListener('click', async () => {
+        const payload = buildInquiryPayload();
+        if (!payload.name || !payload.email || !payload.email.includes('@')) {
+          showToast('Please enter your Name and valid Email in Step 1');
+          document.getElementById('wizard-step-2').classList.add('hidden');
+          document.getElementById('wizard-step-1').classList.remove('hidden');
+          document.getElementById('wizard-step-label').textContent = 'Step 1 of 2 · Your Details';
+          return;
+        }
+
+        const sendBtn = document.getElementById('wizard-send-btn');
+        const originalText = sendBtn.textContent;
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
+
+        try {
+          const res = await fetch('https://formsubmit.co/ajax/ananthetech@gmail.com', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              Name: payload.name,
+              Email: payload.email,
+              Organization: payload.org,
+              Priority: selectedPriority,
+              Engine: payload.engine,
+              Workload: payload.details,
+              _subject: payload.subject,
+              _replyto: payload.email,
+              _template: 'table',
+              _captcha: 'false'
+            })
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          document.getElementById('wizard-step-2').classList.add('hidden');
+          document.getElementById('wizard-success').classList.remove('hidden');
+          document.getElementById('wizard-step-label').textContent = 'Sent · Direct to ananthetech@gmail.com';
+          showToast('Inquiry delivered to ananthetech@gmail.com!');
+        } catch (err) {
+          showToast('Direct send unavailable here — opening email fallback');
+          const mailtoUrl = 'mailto:ananthetech@gmail.com?subject=' + encodeURIComponent(payload.subject) + '&body=' + encodeURIComponent(payload.body);
+          window.location.href = mailtoUrl;
+        } finally {
+          sendBtn.disabled = false;
+          sendBtn.textContent = originalText;
+        }
+      });
+
+      document.getElementById('wizard-reset-btn').addEventListener('click', () => {
+        document.getElementById('wiz-name').value = '';
+        document.getElementById('wiz-email').value = '';
+        document.getElementById('wiz-org').value = '';
+        document.getElementById('wiz-msg').value = '';
+        document.getElementById('wizard-success').classList.add('hidden');
+        document.getElementById('wizard-step-1').classList.remove('hidden');
+        document.getElementById('wizard-step-label').textContent = 'Step 1 of 2 · Your Details';
       });
     });
   </script>
